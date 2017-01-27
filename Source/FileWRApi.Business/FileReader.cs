@@ -1,18 +1,13 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using NLog;
 
 namespace FileWR.Business
 {
     public class FileReader : IFileReader
     {
-        private readonly ILogger<FileReader> _logger;
-
-        public FileReader(ILogger<FileReader> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
 
         public async Task<string> ReadAsync(string path)
         {
@@ -22,7 +17,7 @@ namespace FileWR.Business
                 try
                 {
                     fileText = await stream.ReadToEndAsync();
-                    _logger.LogInformation($"Number of chars read from file {fileText.Length}");
+                    _logger.Info($"Number of chars read from file {fileText.Length}");
                 }
                 catch (Exception ex)
                 {

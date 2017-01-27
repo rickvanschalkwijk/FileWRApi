@@ -6,11 +6,11 @@ namespace FileWR.Business
 {
     public static class ContentHelper
     {
-        public static string GenerateFileContents()
+        public static string GenerateFileContents(int charsToGenerate)
         {
             var _randomNumberGenerator = new Random();
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
-            var randomString = new string(Enumerable.Repeat(chars, 100000)
+            var randomString = new string(Enumerable.Repeat(chars, charsToGenerate)
               .Select(p => p[_randomNumberGenerator.Next(p.Length)]).ToArray());
 
             return randomString;

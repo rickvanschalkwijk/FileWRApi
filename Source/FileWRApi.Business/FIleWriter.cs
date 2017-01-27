@@ -1,19 +1,13 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using FileWR.Business.Services;
-using Microsoft.Extensions.Logging;
+using NLog;
 
 namespace FileWR.Business
 {
     public class FileWriter : IFileWriter
     {
-        private readonly ILogger<FileWriter> _logger;
-
-        public FileWriter(ILogger<FileWriter> logger, IDirectoryService directoryService)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
 
         public async Task<string> CreateFileAsync(string path, string content)
         {
@@ -24,11 +18,11 @@ namespace FileWR.Business
                     await writer.WriteAsync(content);
                 }
 
-                _logger.LogInformation($"File created at path: {path}");
+                _logger.Info($"File created at path: {path}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Unable to create file: {ex}");
+                _logger.Error($"Unable to create file: {ex}");
             }
 
             return path;
