@@ -4,6 +4,10 @@ using System.Web.Http;
 using FileWR.Business;
 using FileWR.Business.Services;
 using FileWRApi.Models;
+using NLog;
+using FileWRApi.Business;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace FileWRApi.Controllers
 {
@@ -17,6 +21,8 @@ namespace FileWRApi.Controllers
         private string outPutCharFilePath;
         private string outPutDigitsFilePath;
 
+        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+
         public FileController(IFileWriter fileWriter, IFileReader fileReader, IDirectoryService directoryService)
         {
             _fileWriter = fileWriter;
@@ -28,24 +34,44 @@ namespace FileWRApi.Controllers
         [Route("file/create/{chars}")]
         public async Task<IHttpActionResult> Create(int chars)
         {
-            // create the directory
-            var dirPath = await _directoryService.CreateDirectoryAsync("input");
+            var simpleSchedular = new SimpleTaskScheduler();
+            var splitFileContent = new Dictionary<string, string>();
 
-            // construct all the file paths for input and output files
-            ConstructFilePaths(dirPath);
+            using (simpleSchedular)
+            {
+                var tasks = new Task[2];
+                string content = string.Empty;
 
-            // create the input file with random chars and digits
-            var filePath = await _fileWriter.CreateFileAsync(inputFilePath, ContentHelper.GenerateFileContents(chars));
+                var taskOne = new Task(() => 
+                {
+                    WriteStatusAndSleep("start for 1 sec", 1000);
+                    var dirPath = _directoryService.CreateDirectoryAsync("input").Result;
+                    ConstructFilePaths(dirPath);
+                });
+                tasks[0] = taskOne;
 
-            // read the create file content
-            var content = await _fileReader.ReadAsync(filePath);
+                var taskTwo = new Task(() =>
+                {
+                    WriteStatusAndSleep("start for 1 sec", 1000);
+                    var filePath = _fileWriter.CreateFileAsync(inputFilePath, ContentHelper.GenerateFileContents(chars)).Result;
+                    content = _fileReader.ReadAsync(filePath).Result;
+                });
+                tasks[1] = taskTwo;
 
-            // split between chars and digits
-            var splitFileContent = ContentHelper.SplitFileContent(content);
+                var taskThree = new Task(() => 
+                {
+                    WriteStatusAndSleep("start for 1 sec", 1000);
+                    splitFileContent = ContentHelper.SplitFileContent(content);
+                    _fileWriter.CreateFileAsync(outPutCharFilePath, splitFileContent["chars"]);
+                    _fileWriter.CreateFileAsync(outPutDigitsFilePath, splitFileContent["digits"]);
+                });
+                tasks[2] = taskThree;
 
-            // write them to seperate files
-            await _fileWriter.CreateFileAsync(outPutCharFilePath, splitFileContent["chars"]);
-            await _fileWriter.CreateFileAsync(outPutDigitsFilePath, splitFileContent["digits"]);
+                foreach (var t in tasks)
+                {
+                    t.Start(simpleSchedular);
+                }
+            }
 
             var result = new GenerateResult
             {
@@ -54,6 +80,12 @@ namespace FileWRApi.Controllers
             };
 
             return Ok(result);
+        }
+
+        private void WriteStatusAndSleep(string msg, int sleepTime)
+        {
+            _logger.Info("on Thread " + Thread.CurrentThread.ManagedThreadId.ToString() + " -- " + msg);
+            Thread.Sleep(sleepTime);
         }
 
         private void ConstructFilePaths(string dirPath)
